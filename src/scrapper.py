@@ -9,10 +9,12 @@ import time
 from typing import Tuple, TextIO
 from datetime import datetime
 
-BASE_URL = "https://suumo.jp/chintai/miyagi/sa_sendai/?page={}"
+BASE_URL = "https://suumo.jp/chintai/miyagi/sa_sendai/?page={}&pc=50"
 
 CRAWL_DATE = datetime.utcnow().strftime("%Y-%m-%d")
-PARTITION_DIR = f"data/bronze/suumo/crawl_date={CRAWL_DATE}/prefecture=miyagi"
+PARTITION_DIR = (
+    f"data/bronze/suumo/crawl_date={CRAWL_DATE}/prefecture=miyagi/city=sendai"
+)
 os.makedirs(PARTITION_DIR, exist_ok=True)
 
 
@@ -33,7 +35,7 @@ def open_shard(page: int) -> Tuple[TextIO, str]:
     return gzip.open(path, "wt", encoding="utf-8"), path
 
 
-total_pages = 666
+total_pages = 266
 
 for page in range(1, total_pages + 1):
     print(f"Scraping page {page}/{total_pages}")
@@ -60,6 +62,12 @@ for page in range(1, total_pages + 1):
             )
             if station.text.strip() != ""
         ]
+
+        building_meta = item.find("li", class_="cassetteitem_detail-col3").find_all(
+            "div"
+        )
+        building_age = building_meta[0].text.strip()
+        building_type = building_meta[1].text.strip()
 
         rows = item.find_all("tr", class_="js-cassette_link")
 
@@ -96,6 +104,8 @@ for page in range(1, total_pages + 1):
                 "gratuity": gratuity,
                 "madori": madori,  # layout ie 1k, 2kdl
                 "menseki": menseki,  # area of the apartment in m2
+                "building_age": building_age,
+                "building_type": building_type,
                 "url": apartment_url,
                 "url_key": url_key(apartment_url),
             }
