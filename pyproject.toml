@@ -12,5 +12,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "duckdb>=1.2.2",
     "ipykernel>=6.29.5",
 ]
