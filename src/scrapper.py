@@ -5,7 +5,7 @@ import json
 import os
 import time
 
-base_url = "https://suumo.jp/jj/chintai/ichiran/FR301FC001/?ar=030&bs=040&page={}"
+base_url = "https://suumo.jp/chintai/miyagi/sa_sendai/?page={}"
 
 # Ensure the directory exists
 output_dir = "data/apartments_json"
@@ -22,6 +22,7 @@ for page in range(1, total_pages + 1):
     # Extract apartment details
     cassette_items = soup.find_all("div", class_="cassetteitem")
 
+    # Loop through each listing
     for item in cassette_items:
         property_name = item.find(
             "div", class_="cassetteitem_content-title"
@@ -38,6 +39,9 @@ for page in range(1, total_pages + 1):
 
         rows = item.find_all("tr", class_="js-cassette_link")
         apartments = []
+
+        # A listing can have multiple apartments inside it
+        # Loop through all of the apartments in that listing
         for row in rows:
             rent = row.find("span", class_="cassetteitem_price--rent").text.strip()
             admin_fee = row.find(
