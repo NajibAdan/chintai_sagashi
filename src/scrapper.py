@@ -29,18 +29,22 @@ def open_shard(page: int) -> Tuple[TextIO, str]:
     """
     Creates a gzipped JSONL file for each page
     """
-    shard_dir = os.path.join(PARTITION_DIR, f"page={page:06d}")
-    os.makedirs(shard_dir, exist_ok=True)
-    path = os.path.join(shard_dir, "part-0000.jsonl.gz")
+    path = os.path.join(PARTITION_DIR, f"page-{page:06d}-part-0000.jsonl.gz")
     return gzip.open(path, "wt", encoding="utf-8"), path
 
 
-total_pages = 266
+page = 1
+total_pages = 1
 
-for page in range(1, total_pages + 1):
-    print(f"Scraping page {page}/{total_pages}")
+while page <= total_pages:
     response = requests.get(BASE_URL.format(page))
     soup = BeautifulSoup(response.content, "html.parser")
+
+    # Find the last page
+    total_pages = int(
+        soup.find("ol", class_="pagination-parts").find_all("li")[-1].text.strip()
+    )
+    print(f"Scraping page {page}/{total_pages}")
 
     # Extract apartment details
     cassette_items = soup.find_all("div", class_="cassetteitem")
@@ -115,3 +119,4 @@ for page in range(1, total_pages + 1):
     out.close()
     print(f"Wrote {wrote} records --> {path}")
     time.sleep(randint(1, 4))
+    page += 1
