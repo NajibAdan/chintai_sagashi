@@ -11,3 +11,9 @@ wheels/
 
 # data files
 data/
+
+# env files
+.env
+
+# ruff 
+.ruff_cache

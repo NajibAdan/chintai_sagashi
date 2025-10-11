@@ -7,15 +7,25 @@ import gzip
 import hashlib
 import time
 from typing import Tuple, TextIO
-from datetime import datetime
+import datetime
+import boto3
+import constants
 
 BASE_URL = "https://suumo.jp/chintai/miyagi/sa_sendai/?page={}&pc=50"
 
-CRAWL_DATE = datetime.utcnow().strftime("%Y-%m-%d")
+CRAWL_DATE = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
 PARTITION_DIR = (
-    f"data/bronze/suumo/crawl_date={CRAWL_DATE}/prefecture=miyagi/city=sendai"
+    f"data/raw/suumo/crawl_date={CRAWL_DATE}/prefecture=miyagi/city=sendai"
 )
 os.makedirs(PARTITION_DIR, exist_ok=True)
+
+s3 = boto3.client(
+    "s3",
+    region_name=constants.BUCKET_REGION,
+    endpoint_url=constants.BUCKET_ENDPOINT,
+    aws_access_key_id=constants.AWS_ACCESS_KEY,
+    aws_secret_access_key=constants.AWS_SECRET_KEY,
+)
 
 
 def url_key(u: str) -> str:
@@ -36,14 +46,19 @@ def open_shard(page: int) -> Tuple[TextIO, str]:
 page = 1
 total_pages = 1
 
+session = requests.Session()
+response = session.get(BASE_URL.format(page))
+soup = BeautifulSoup(response.content, "html.parser")
+
+# Find the last page
+total_pages = int(
+    soup.find("ol", class_="pagination-parts").find_all("li")[-1].text.strip()
+)
+
 while page <= total_pages:
-    response = requests.get(BASE_URL.format(page))
+    response = session.get(BASE_URL.format(page))
     soup = BeautifulSoup(response.content, "html.parser")
 
-    # Find the last page
-    total_pages = int(
-        soup.find("ol", class_="pagination-parts").find_all("li")[-1].text.strip()
-    )
     print(f"Scraping page {page}/{total_pages}")
 
     # Extract apartment details
@@ -97,7 +112,10 @@ while page <= total_pages:
             rec = {
                 "schema_version": 1,
                 "source": "suumo",
-                "crawl_ts": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+                "crawl_ts": datetime.datetime.now(datetime.UTC).isoformat(
+                    timespec="seconds"
+                )
+                + "Z",
                 "listing_page": page,
                 "property_name": property_name,
                 "location": location,
@@ -117,6 +135,13 @@ while page <= total_pages:
             out.write(json.dumps(rec, ensure_ascii=False) + "\n")
             wrote += 1
     out.close()
-    print(f"Wrote {wrote} records --> {path}")
-    time.sleep(randint(1, 4))
-    page += 1
+
+    if wrote > 0:
+        print(f"Wrote {wrote} records --> {path}")
+        # upload the file to S3
+        s3.upload_file(path, constants.BUCKET_NAME, path)
+        time.sleep(randint(1, 4))
+        page += 1
+    # re-try the link again
+    else:
+        print(f"Got 0 records for page: {page}/{total_pages}. Retrying again")
