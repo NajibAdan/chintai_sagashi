@@ -45,20 +45,29 @@ def open_shard(page: int) -> Tuple[TextIO, str]:
 
 page = 1
 total_pages = 1
+retry_attempt = 0
 
 session = requests.Session()
 response = session.get(BASE_URL.format(page))
 soup = BeautifulSoup(response.content, "html.parser")
 
-# Find the last page
-total_pages = int(
-    soup.find("ol", class_="pagination-parts").find_all("li")[-1].text.strip()
-)
+while total_pages == 1:
+    try:
+        # Find the last page
+        total_pages = int(
+            soup.find("ol", class_="pagination-parts").find_all("li")[-1].text.strip()
+        )
+    except Exception as e:
+        print(f"Exception: {e}.\nTrying again.")
+        time.sleep(randint(1,4))
+        response = session.get(BASE_URL.format(page))
+        soup = BeautifulSoup(response.content, "html.parser")
+
 
 while page <= total_pages:
     response = session.get(BASE_URL.format(page))
     soup = BeautifulSoup(response.content, "html.parser")
-
+    retry_attempt += 1
     print(f"Scraping page {page}/{total_pages}")
 
     # Extract apartment details
@@ -136,12 +145,13 @@ while page <= total_pages:
             wrote += 1
     out.close()
 
-    if wrote > 0:
+    if wrote > 0 or retry_attempt >= 10: # We have data OR we have reached the maximum retry attempt
         print(f"Wrote {wrote} records --> {path}")
         # upload the file to S3
         s3.upload_file(path, constants.BUCKET_NAME, path)
-        time.sleep(randint(1, 4))
         page += 1
+        retry_attempt = 0
     # re-try the link again
     else:
         print(f"Got 0 records for page: {page}/{total_pages}. Retrying again")
+    time.sleep(randint(1, 8))
