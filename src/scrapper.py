@@ -46,6 +46,7 @@ def open_shard(page: int) -> Tuple[TextIO, str]:
 page = 1
 total_pages = 1
 retry_attempt = 0
+attempts = 20
 
 session = requests.Session()
 response = session.get(BASE_URL.format(page))
@@ -65,11 +66,16 @@ while total_pages == 1:
 
 
 while page <= total_pages:
+    print(f"Scraping page {page}/{total_pages}. Attempt: {retry_attempt}/{attempts}")
     response = session.get(BASE_URL.format(page))
     soup = BeautifulSoup(response.content, "html.parser")
     retry_attempt += 1
-    print(f"Scraping page {page}/{total_pages}")
 
+    # Retry early if we get soft-blocked
+    if soup.find("title").text.strip == "【SUUMO】アクセス集中に関するお詫び":
+        time_to_sleep = 3 * ((1.2)**retry_attempt)
+        print(f"Got 0 records for page: {page}/{total_pages}. Retrying again after {time_to_sleep} seconds.")
+        time.sleep(time_to_sleep)
     # Extract apartment details
     cassette_items = soup.find_all("div", class_="cassetteitem")
 
@@ -118,8 +124,10 @@ while page <= total_pages:
                 "https://suumo.jp"
                 + row.find("a", class_="js-cassette_link_href")["href"]
             )
+            # which floor the apartment is on is contained in the 3rd <td> tag
+            apartment_floor = row.find_all("td")[2].text.strip()
             rec = {
-                "schema_version": 1,
+                "schema_version": 2,
                 "source": "suumo",
                 "crawl_ts": datetime.datetime.now(datetime.UTC).isoformat(
                     timespec="seconds"
@@ -133,6 +141,7 @@ while page <= total_pages:
                 "management_fee": admin_fee,
                 "deposit": deposit,  # deposit fee
                 "gratuity": gratuity,
+                "apartment_floor": apartment_floor,
                 "madori": madori,  # layout ie 1k, 2kdl
                 "menseki": menseki,  # area of the apartment in m2
                 "building_age": building_age,
@@ -145,13 +154,18 @@ while page <= total_pages:
             wrote += 1
     out.close()
 
-    if wrote > 0 or retry_attempt >= 10: # We have data OR we have reached the maximum retry attempt
+    if wrote > 0:
         print(f"Wrote {wrote} records --> {path}")
         # upload the file to S3
         s3.upload_file(path, constants.BUCKET_NAME, path)
         page += 1
         retry_attempt = 0
+    elif retry_attempt >= attempts:
+        print(f"Maximum attempts reached for page {page}. Moving to the next page.")
+        retry_attempt = 0
+        page += 1
     # re-try the link again
     else:
-        print(f"Got 0 records for page: {page}/{total_pages}. Retrying again")
-    time.sleep(randint(1, 8))
+        time_to_sleep = 3 * ((1.2)**retry_attempt)
+        print(f"Got 0 records for page: {page}/{total_pages}. Retrying again after {time_to_sleep} seconds.")
+        time.sleep(time_to_sleep)
