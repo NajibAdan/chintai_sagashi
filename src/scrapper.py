@@ -1,4 +1,3 @@
-from random import randint
 import requests
 from bs4 import BeautifulSoup
 import json
@@ -56,6 +55,33 @@ def open_shard(page: int) -> Tuple[TextIO, str]:
     return gzip.open(path, "wt", encoding="utf-8"), path
 
 
+def fetch_page(session: requests.Session, page: int) -> BeautifulSoup:
+    """
+    A fetch page helper function that returns the BeautifulSoup content
+    of a page
+    """
+    url = BASE_URL.format(page)
+    logger.info(f"Fetching {url}")
+    r = session.get(url, timeout=30)
+    r.raise_for_status()
+    return BeautifulSoup(r.content, "html.parser")
+
+
+def get_total_pages(session: requests.Session) -> int:
+    """
+    Returns the total number of pagination pages
+    """
+    soup = fetch_page(session, 1)
+    try:
+        # Find the last page
+        return int(
+            soup.find("ol", class_="pagination-parts").find_all("li")[-1].text.strip()
+        )
+    except Exception:
+        logger.exception("Failed to detect total pages. Trying again.")
+        return 1
+
+
 page = 1
 total_pages = 1
 retry_attempt = 0
@@ -63,28 +89,17 @@ attempts = 20
 
 logger.info("Starting SUUMO scraper")
 session = requests.Session()
-response = session.get(BASE_URL.format(page))
-soup = BeautifulSoup(response.content, "html.parser")
+soup = fetch_page(session, page)
 
 while total_pages == 1:
-    try:
-        # Find the last page
-        total_pages = int(
-            soup.find("ol", class_="pagination-parts").find_all("li")[-1].text.strip()
-        )
-    except Exception:
-        logger.exception("Failed to detect total pages. Trying again.")
-        time.sleep(randint(1, 4))
-        response = session.get(BASE_URL.format(page))
-        soup = BeautifulSoup(response.content, "html.parser")
+    total_pages = get_total_pages(session)
 
 
 while page <= total_pages:
     logger.info(
         f"Scraping page {page}/{total_pages}. Attempt: {retry_attempt}/{attempts}"
     )
-    response = session.get(BASE_URL.format(page))
-    soup = BeautifulSoup(response.content, "html.parser")
+    soup = fetch_page(session, page)
     retry_attempt += 1
 
     # Retry early if we get soft-blocked
