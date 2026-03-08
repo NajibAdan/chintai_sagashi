@@ -17,3 +17,6 @@ data/
 
 # ruff 
 .ruff_cache
+
+# logs
+logs/

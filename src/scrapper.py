@@ -10,13 +10,26 @@ from typing import Tuple, TextIO
 import datetime
 import boto3
 import constants
+import logging
+from pathlib import Path
+
+LOG_DIR = Path("logs")
+LOG_DIR.mkdir(exist_ok=True)
+
+LOG_FILE = LOG_DIR / "suumo_scraper.log"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.FileHandler(LOG_FILE), logging.StreamHandler()],
+)
+logger = logging.getLogger(__name__)
+
 
 BASE_URL = "https://suumo.jp/chintai/miyagi/sa_sendai/?page={}&pc=50"
 
 CRAWL_DATE = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
-PARTITION_DIR = (
-    f"data/raw/suumo/crawl_date={CRAWL_DATE}/prefecture=miyagi/city=sendai"
-)
+PARTITION_DIR = f"data/raw/suumo/crawl_date={CRAWL_DATE}/prefecture=miyagi/city=sendai"
 os.makedirs(PARTITION_DIR, exist_ok=True)
 
 s3 = boto3.client(
@@ -48,6 +61,7 @@ total_pages = 1
 retry_attempt = 0
 attempts = 20
 
+logger.info("Starting SUUMO scraper")
 session = requests.Session()
 response = session.get(BASE_URL.format(page))
 soup = BeautifulSoup(response.content, "html.parser")
@@ -58,23 +72,27 @@ while total_pages == 1:
         total_pages = int(
             soup.find("ol", class_="pagination-parts").find_all("li")[-1].text.strip()
         )
-    except Exception as e:
-        print(f"Exception: {e}.\nTrying again.")
-        time.sleep(randint(1,4))
+    except Exception:
+        logger.exception("Failed to detect total pages. Trying again.")
+        time.sleep(randint(1, 4))
         response = session.get(BASE_URL.format(page))
         soup = BeautifulSoup(response.content, "html.parser")
 
 
 while page <= total_pages:
-    print(f"Scraping page {page}/{total_pages}. Attempt: {retry_attempt}/{attempts}")
+    logger.info(
+        f"Scraping page {page}/{total_pages}. Attempt: {retry_attempt}/{attempts}"
+    )
     response = session.get(BASE_URL.format(page))
     soup = BeautifulSoup(response.content, "html.parser")
     retry_attempt += 1
 
     # Retry early if we get soft-blocked
     if soup.find("title").text.strip == "【SUUMO】アクセス集中に関するお詫び":
-        time_to_sleep = 3 * ((1.2)**retry_attempt)
-        print(f"Got 0 records for page: {page}/{total_pages}. Retrying again after {time_to_sleep} seconds.")
+        time_to_sleep = 3 * ((1.2) ** retry_attempt)
+        logger.warning(
+            f"Got 0 records for page: {page}/{total_pages}. Retrying again after {time_to_sleep} seconds."
+        )
         time.sleep(time_to_sleep)
     # Extract apartment details
     cassette_items = soup.find_all("div", class_="cassetteitem")
@@ -155,17 +173,23 @@ while page <= total_pages:
     out.close()
 
     if wrote > 0:
-        print(f"Wrote {wrote} records --> {path}")
+        logger.info(f"Wrote {wrote} records --> {path}")
         # upload the file to S3
+        logger.info(f"Uploading {path} to S3")
         s3.upload_file(path, constants.BUCKET_NAME, path)
         page += 1
         retry_attempt = 0
     elif retry_attempt >= attempts:
-        print(f"Maximum attempts reached for page {page}. Moving to the next page.")
+        logger.error(
+            f"Maximum attempts reached for page {page}. Moving to the next page."
+        )
         retry_attempt = 0
         page += 1
     # re-try the link again
     else:
-        time_to_sleep = 3 * ((1.2)**retry_attempt)
-        print(f"Got 0 records for page: {page}/{total_pages}. Retrying again after {time_to_sleep} seconds.")
+        time_to_sleep = 3 * ((1.2) ** retry_attempt)
+        logger.warning(
+            f"Got 0 records for page: {page}/{total_pages}. Retrying again after {time_to_sleep} seconds."
+        )
         time.sleep(time_to_sleep)
+logger.info("Scraper finished")
