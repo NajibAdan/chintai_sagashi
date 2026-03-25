@@ -63,7 +63,10 @@ def fetch_page(session: requests.Session, page: int) -> BeautifulSoup:
     url = BASE_URL.format(page)
     logger.info(f"Fetching {url}")
     r = session.get(url, timeout=30)
-    r.raise_for_status()
+    try:
+        r.raise_for_status()
+    except requests.HTTPError as e:
+        logger.exception(e)
     return BeautifulSoup(r.content, "html.parser")
 
 
