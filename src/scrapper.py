@@ -5,7 +5,7 @@ import os
 import gzip
 import hashlib
 import time
-from typing import Tuple, TextIO
+from typing import Tuple
 import datetime
 import boto3
 import constants
@@ -47,6 +47,7 @@ s3 = boto3.client(
     aws_secret_access_key=constants.AWS_SECRET_KEY,
 )
 
+
 def upload_to_s3(file_path: str, s3_path: str) -> None:
     """
     Uploads a file to S3 with error handling
@@ -87,6 +88,7 @@ def fetch_page(session: requests.Session, page: int) -> BeautifulSoup:
     time.sleep(REQUEST_DELAY)  # Respectful scraping delay
     return BeautifulSoup(r.content, "html.parser")
 
+
 def save_page_to_file(response: requests.Response, page: int) -> None:
     """
     Saves the webpage to gzipped file for archival (local and S3)
@@ -94,13 +96,14 @@ def save_page_to_file(response: requests.Response, page: int) -> None:
     html_directory = os.path.join(PARTITION_DIR, "html")
     os.makedirs(html_directory, exist_ok=True)
     file_path = os.path.join(html_directory, f"page-{page:06d}.html.gz")
-    with gzip.open(file_path, 'wt', encoding='utf-8') as file:
+    with gzip.open(file_path, "wt", encoding="utf-8") as file:
         file.write(response.text)
     logger.info(f"Saved page {page} to file: {file_path}")
-    
+
     # Also upload HTML to S3 for persistence
     s3_path = f"{PARTITION_DIR}/html/page-{page:06d}.html.gz"
     upload_to_s3(file_path, s3_path)
+
 
 def get_total_pages(session: requests.Session) -> int:
     """
@@ -147,7 +150,7 @@ while page <= total_pages:
         )
         time.sleep(time_to_sleep)
         continue
-    
+
     # Extract apartment details
     cassette_items = soup.find_all("div", class_="cassetteitem")
 
