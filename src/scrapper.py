@@ -74,7 +74,7 @@ def open_shard(page: int) -> Tuple[gzip.GzipFile, str]:
     return gzip.open(path, "wt", encoding="utf-8"), path
 
 
-def fetch_page(session: requests.Session, page: int) -> BeautifulSoup:
+def fetch_page(session: requests.Session, page: int, save_file: bool = True) -> BeautifulSoup:
     """
     A fetch page helper function that returns the BeautifulSoup content
     of a page
@@ -83,8 +83,9 @@ def fetch_page(session: requests.Session, page: int) -> BeautifulSoup:
     logger.info(f"Fetching {url}")
     r = session.get(url, timeout=30)
     r.raise_for_status()
-    logger.info(f"Saving page {page} to file")
-    save_page_to_file(r, page)
+    if save_file:
+        logger.info(f"Saving page {page} to file")
+        save_page_to_file(r, page)
     time.sleep(REQUEST_DELAY)  # Respectful scraping delay
     return BeautifulSoup(r.content, "html.parser")
 
@@ -109,7 +110,8 @@ def get_total_pages(session: requests.Session) -> int:
     """
     Returns the total number of pagination pages
     """
-    soup = fetch_page(session, 1)
+    # since we are doing a pre-fetch, no need to save the html file yet
+    soup = fetch_page(session, 1, save_file = False)
     try:
         # Find the last page
         return int(
@@ -128,16 +130,17 @@ attempts = MAX_RETRY_ATTEMPTS
 logger.info("Starting SUUMO scraper")
 session = requests.Session()
 session.headers.update({"User-Agent": USER_AGENT})
-soup = fetch_page(session, page)
 
+# get the total number of pages
 while total_pages == 1:
     total_pages = get_total_pages(session)
 
-
+# loop through every page
 while page <= total_pages:
     logger.info(
         f"Scraping page {page}/{total_pages}. Attempt: {retry_attempt}/{attempts}"
     )
+    # fetch the page
     soup = fetch_page(session, page)
     retry_attempt += 1
 
@@ -155,7 +158,7 @@ while page <= total_pages:
     cassette_items = soup.find_all("div", class_="cassetteitem")
 
     out, path = open_shard(page)
-    wrote = 0
+    wrote = 0 # total number of records!!
 
     try:
         # Loop through each listing
@@ -181,67 +184,68 @@ while page <= total_pages:
 
             rows = item.find_all("tr", class_="js-cassette_link")
 
-        # A listing can have multiple apartments inside it
-        # Loop through all of the apartments in that listing
-        for row in rows:
-            try:
-                rent = row.find("span", class_="cassetteitem_price--rent").text.strip()
-                admin_fee = row.find(
-                    "span", class_="cassetteitem_price--administration"
-                ).text.strip()
-                deposit = row.find(
-                    "span", class_="cassetteitem_price--deposit"
-                ).text.strip()
-                gratuity = row.find(
-                    "span", class_="cassetteitem_price--gratuity"
-                ).text.strip()
-                madori = row.find("span", class_="cassetteitem_madori").text.strip()
-                menseki = row.find("span", class_="cassetteitem_menseki").text.strip()
-                apartment_url = (
-                    "https://suumo.jp"
-                    + row.find("a", class_="js-cassette_link_href")["href"]
-                )
-                # which floor the apartment is on is contained in the 3rd <td> tag
-                apartment_floor = row.find_all("td")[2].text.strip()
-                rec = {
-                    "schema_version": 2,
-                    "source": "suumo",
-                    "crawl_ts": datetime.datetime.now(datetime.UTC).isoformat(
-                        timespec="seconds"
+            # A listing can have multiple apartments inside it
+            # Loop through all of the apartments in that listing
+            for row in rows:
+                try:
+                    rent = row.find("span", class_="cassetteitem_price--rent").text.strip()
+                    admin_fee = row.find(
+                        "span", class_="cassetteitem_price--administration"
+                    ).text.strip()
+                    deposit = row.find(
+                        "span", class_="cassetteitem_price--deposit"
+                    ).text.strip()
+                    gratuity = row.find(
+                        "span", class_="cassetteitem_price--gratuity"
+                    ).text.strip()
+                    madori = row.find("span", class_="cassetteitem_madori").text.strip()
+                    menseki = row.find("span", class_="cassetteitem_menseki").text.strip()
+                    apartment_url = (
+                        "https://suumo.jp"
+                        + row.find("a", class_="js-cassette_link_href")["href"]
                     )
-                    + "Z",
-                    "listing_page": page,
-                    "property_name": property_name,
-                    "location": location,
-                    "stations": stations,
-                    "monthly_rent": rent,
-                    "management_fee": admin_fee,
-                    "deposit": deposit,  # deposit fee
-                    "gratuity": gratuity,
-                    "apartment_floor": apartment_floor,
-                    "madori": madori,  # layout ie 1k, 2kdl
-                    "menseki": menseki,  # area of the apartment in m2
-                    "building_age": building_age,
-                    "building_type": building_type,
-                    "url": apartment_url,
-                    "url_key": url_key(apartment_url),
-                }
+                    # which floor the apartment is on is contained in the 3rd <td> tag
+                    apartment_floor = row.find_all("td")[2].text.strip()
+                    rec = {
+                        "schema_version": 2,
+                        "source": "suumo",
+                        "crawl_ts": datetime.datetime.now(datetime.UTC).isoformat(
+                            timespec="seconds"
+                        )
+                        + "Z",
+                        "listing_page": page,
+                        "property_name": property_name,
+                        "location": location,
+                        "stations": stations,
+                        "monthly_rent": rent,
+                        "management_fee": admin_fee,
+                        "deposit": deposit,  # deposit fee
+                        "gratuity": gratuity,
+                        "apartment_floor": apartment_floor,
+                        "madori": madori,  # layout ie 1k, 2kdl
+                        "menseki": menseki,  # area of the apartment in m2
+                        "building_age": building_age,
+                        "building_type": building_type,
+                        "url": apartment_url,
+                        "url_key": url_key(apartment_url),
+                    }
 
-                out.write(json.dumps(rec, ensure_ascii=False) + "\n")
-                wrote += 1
-            except (AttributeError, KeyError, IndexError) as e:
-                logger.warning(f"Failed to parse apartment row: {e}")
-                continue
+                    out.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                    wrote += 1
+                except (AttributeError, KeyError, IndexError) as e:
+                    logger.warning(f"Failed to parse apartment row: {e}")
+                    continue
     except Exception as e:
         logger.error(f"Error processing page {page}: {e}")
     finally:
         out.close()
-
+    
+    # if we have some records scrapped save the data and upload it
     if wrote > 0:
         logger.info(f"Wrote {wrote} records --> {path}")
         # upload the file to S3
         logger.info(f"Uploading {path} to S3")
-        upload_to_s3(path, path)
+        upload_to_s3(file_path = path, s3_path = path)
         page += 1
         retry_attempt = 0
     elif retry_attempt >= attempts:
