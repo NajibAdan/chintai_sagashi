@@ -74,7 +74,9 @@ def open_shard(page: int) -> Tuple[gzip.GzipFile, str]:
     return gzip.open(path, "wt", encoding="utf-8"), path
 
 
-def fetch_page(session: requests.Session, page: int, save_file: bool = True) -> BeautifulSoup:
+def fetch_page(
+    session: requests.Session, page: int, save_file: bool = True
+) -> BeautifulSoup:
     """
     A fetch page helper function that returns the BeautifulSoup content
     of a page
@@ -82,7 +84,10 @@ def fetch_page(session: requests.Session, page: int, save_file: bool = True) -> 
     url = BASE_URL.format(page)
     logger.info(f"Fetching {url}")
     r = session.get(url, timeout=30)
-    r.raise_for_status()
+    try:
+        r.raise_for_status()
+    except requests.HTTPError as e:
+        logger.exception(e)
     if save_file:
         logger.info(f"Saving page {page} to file")
         save_page_to_file(r, page)
@@ -111,7 +116,7 @@ def get_total_pages(session: requests.Session) -> int:
     Returns the total number of pagination pages
     """
     # since we are doing a pre-fetch, no need to save the html file yet
-    soup = fetch_page(session, 1, save_file = False)
+    soup = fetch_page(session, 1, save_file=False)
     try:
         # Find the last page
         return int(
@@ -158,7 +163,7 @@ while page <= total_pages:
     cassette_items = soup.find_all("div", class_="cassetteitem")
 
     out, path = open_shard(page)
-    wrote = 0 # total number of records!!
+    wrote = 0  # total number of records!!
 
     try:
         # Loop through each listing
@@ -188,7 +193,9 @@ while page <= total_pages:
             # Loop through all of the apartments in that listing
             for row in rows:
                 try:
-                    rent = row.find("span", class_="cassetteitem_price--rent").text.strip()
+                    rent = row.find(
+                        "span", class_="cassetteitem_price--rent"
+                    ).text.strip()
                     admin_fee = row.find(
                         "span", class_="cassetteitem_price--administration"
                     ).text.strip()
@@ -199,7 +206,9 @@ while page <= total_pages:
                         "span", class_="cassetteitem_price--gratuity"
                     ).text.strip()
                     madori = row.find("span", class_="cassetteitem_madori").text.strip()
-                    menseki = row.find("span", class_="cassetteitem_menseki").text.strip()
+                    menseki = row.find(
+                        "span", class_="cassetteitem_menseki"
+                    ).text.strip()
                     apartment_url = (
                         "https://suumo.jp"
                         + row.find("a", class_="js-cassette_link_href")["href"]
@@ -239,13 +248,13 @@ while page <= total_pages:
         logger.error(f"Error processing page {page}: {e}")
     finally:
         out.close()
-    
+
     # if we have some records scrapped save the data and upload it
     if wrote > 0:
         logger.info(f"Wrote {wrote} records --> {path}")
         # upload the file to S3
         logger.info(f"Uploading {path} to S3")
-        upload_to_s3(file_path = path, s3_path = path)
+        upload_to_s3(file_path=path, s3_path=path)
         page += 1
         retry_attempt = 0
     elif retry_attempt >= attempts:
