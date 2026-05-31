@@ -32,9 +32,9 @@ MAX_RETRY_ATTEMPTS = 20
 BASE_RETRY_DELAY = 3  # base delay for exponential backoff
 RETRY_BACKOFF_MULTIPLIER = 1.2
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-SOFT_BLOCK_TITLE = "【SUUMO】アクセス集中に関するお詫び"
+SOFT_BLOCK_TITLE = ["【SUUMO】アクセス集中に関するお詫び", "【SUUMO】 ページを表示できません。"] ## For backward compability
 # Number of concurrent scraping processes (adjust 4-8 for typical systems, higher for more resources)
-PROCESS_POOL_SIZE = 8
+PROCESS_POOL_SIZE = min(len(LOCATIONS), 8)
 
 
 def upload_to_s3(file_path: str, s3_path: str, s3_client) -> None:
@@ -170,7 +170,7 @@ def scrape_location(location: dict) -> None:
         retry_attempt += 1
 
         title_tag = soup.find("title")
-        if title_tag and title_tag.text.strip() == SOFT_BLOCK_TITLE:
+        if title_tag and title_tag.text.strip() in SOFT_BLOCK_TITLE:
             time_to_sleep = BASE_RETRY_DELAY * (RETRY_BACKOFF_MULTIPLIER**retry_attempt)
             logger.warning(
                 f"[PID {os.getpid()}] Got soft-blocked for page: {page}/{total_pages}. Retrying after {time_to_sleep} seconds."
