@@ -1,0 +1,14 @@
+version: 2
+
+sources:
+  - name: suumo_raw
+    tables:
+      - name: listings 
+        config:
+          external_location: >
+            read_ndjson(
+              's3://{{ env_var("BUCKET_NAME") }}/data/raw/**/*.jsonl.gz',
+              hive_partitioning = true,
+              union_by_name = true,
+              filename = true
+            )
