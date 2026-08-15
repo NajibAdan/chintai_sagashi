@@ -7,7 +7,11 @@ requires-python = ">=3.13"
 dependencies = [
     "beautifulsoup4>=4.13.4",
     "boto3>=1.40.50",
+<<<<<<< HEAD
     "dbt-duckdb>=1.11.0",
+=======
+    "duckdb>=1.2.2",
+>>>>>>> a146271ef662edf2b21b13b0e8e214d14796ff68
     "pandas>=2.2.3",
     "python-dotenv>=1.1.1",
     "requests>=2.32.3",
