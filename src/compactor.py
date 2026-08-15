@@ -39,6 +39,9 @@ def sql_string(value: str) -> str:
 
 
 def validate_crawl_date(crawl_date: str) -> None:
+    """
+    Validates if a provided dated is in ISO 8601 format.
+    """
     try:
         datetime.date.fromisoformat(crawl_date)
     except ValueError as exc:
@@ -48,6 +51,9 @@ def validate_crawl_date(crawl_date: str) -> None:
 
 
 def get_s3_client():
+    """
+    Creates an boto3-client from the provided the variables in `constants.py`
+    """
     return boto3.client(
         "s3",
         region_name=constants.BUCKET_REGION,
@@ -61,11 +67,11 @@ def get_duckdb_endpoint() -> tuple[str, bool]:
     """
     Convert a boto3-style endpoint URL:
 
-        https://minio.example.com
+        https://s3.example.com
 
     into what DuckDB's S3 secret expects:
 
-        endpoint = minio.example.com
+        endpoint = s3.example.com
         use_ssl = true
     """
     endpoint_url = constants.BUCKET_ENDPOINT
@@ -98,7 +104,7 @@ def configure_duckdb_s3(con: duckdb.DuckDBPyConnection) -> None:
 
     con.execute(
         f"""
-        CREATE OR REPLACE SECRET minio (
+        CREATE OR REPLACE SECRET s3_secret (
             TYPE S3,
             PROVIDER CONFIG,
             KEY_ID {sql_string(constants.AWS_ACCESS_KEY)},
@@ -138,7 +144,10 @@ def count_input_shards(s3_client, crawl_date: str) -> int:
     return count
 
 
-def compact_crawl_date(crawl_date: str) -> str:
+def compact_crawl_date(crawl_date: str) -> None:
+    """
+    Compacts a provided crawl_date to a single parquet file.
+    """
     validate_crawl_date(crawl_date)
 
     s3_client = get_s3_client()
@@ -165,7 +174,7 @@ def compact_crawl_date(crawl_date: str) -> str:
         f"page-*.jsonl.gz"
     )
 
-    output_key = f"{COMPACTED_PREFIX}/crawl_date={crawl_date}/suumo.parquet"
+    output_key = f"{COMPACTED_PREFIX}/crawl_date={crawl_date}/data.parquet"
 
     logger.info("Input: %s", input_glob)
     logger.info("Output: s3://%s/%s", constants.BUCKET_NAME, output_key)
@@ -179,24 +188,15 @@ def compact_crawl_date(crawl_date: str) -> str:
         # Let DuckDB optimize execution more freely.
         con.execute("SET preserve_insertion_order = false")
 
-        # We explicitly describe the raw schema instead of making DuckDB
-        # infer it from thousands of small files.
-        #
-        # crawl_date, prefecture and city are extracted from the source
-        # filename because those values live in the Hive-style directory
-        # structure rather than inside the JSON record itself.
         source_query = f"""
             SELECT
                 *
             FROM read_json(
                 {sql_string(input_glob)},
-
                 format = 'newline_delimited',
-
                 compression = 'gzip',
-
                 hive_partitioning = true,
-
+                union_by_name = true,
                 filename = true
             )
         """
@@ -267,5 +267,3 @@ def compact_crawl_date(crawl_date: str) -> str:
         constants.BUCKET_NAME,
         output_key,
     )
-
-    return output_key
