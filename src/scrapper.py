@@ -13,6 +13,7 @@ import logging
 from pathlib import Path
 import multiprocessing
 from locations import LOCATIONS
+from compactor import compact_crawl_date
 
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
@@ -32,9 +33,13 @@ MAX_RETRY_ATTEMPTS = 20
 BASE_RETRY_DELAY = 3  # base delay for exponential backoff
 RETRY_BACKOFF_MULTIPLIER = 1.2
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-SOFT_BLOCK_TITLE = ["【SUUMO】アクセス集中に関するお詫び", "【SUUMO】 ページを表示できません。"] ## For backward compability
+SOFT_BLOCK_TITLE = [
+    "【SUUMO】アクセス集中に関するお詫び",
+    "【SUUMO】 ページを表示できません。",
+]  ## For backward compability
 # Number of concurrent scraping processes (adjust 4-8 for typical systems, higher for more resources)
 PROCESS_POOL_SIZE = min(len(LOCATIONS), 8)
+CRAWL_DATE = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
 
 
 def upload_to_s3(file_path: str, s3_path: str, s3_client) -> None:
@@ -127,9 +132,8 @@ def scrape_location(location: dict) -> None:
     prefecture = location["prefecture"]
     city = location["city"]
     base_url = f"https://suumo.jp/chintai/{prefecture}/sa_{city}/?page={{}}&pc=50"
-    crawl_date = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
     partition_dir = (
-        f"data/raw/suumo/crawl_date={crawl_date}/prefecture={prefecture}/city={city}"
+        f"data/raw/suumo/crawl_date={CRAWL_DATE}/prefecture={prefecture}/city={city}"
     )
     os.makedirs(partition_dir, exist_ok=True)
 
@@ -298,3 +302,6 @@ if __name__ == "__main__":
         pool.map(scrape_location, LOCATIONS)
 
     logger.info("All locations scraped")
+
+    logger.info("Starting compactor")
+    compact_crawl_date(CRAWL_DATE)
