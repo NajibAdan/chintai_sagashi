@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: suumo_raw
+    tables:
+      - name: listings 
+        config:
+          external_location: >
+            read_parquet(
+              's3://{{ env_var("BUCKET_NAME") }}/data/compacted/**/*.parquet',
+              union_by_name = true
+            )
