@@ -4,26 +4,13 @@ import os
 import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
-
 import boto3
 import duckdb
-
-import constants
+import settings
 
 
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
-
-LOG_FILE = LOG_DIR / "suumo_compactor.log"
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler(LOG_FILE),
-        logging.StreamHandler(),
-    ],
-)
 
 logger = logging.getLogger(__name__)
 
@@ -52,14 +39,14 @@ def validate_crawl_date(crawl_date: str) -> None:
 
 def get_s3_client():
     """
-    Creates an boto3-client from the provided the variables in `constants.py`
+    Creates an boto3-client from the provided the variables in `settings.py`
     """
     return boto3.client(
         "s3",
-        region_name=constants.BUCKET_REGION,
-        endpoint_url=constants.BUCKET_ENDPOINT,
-        aws_access_key_id=constants.AWS_ACCESS_KEY,
-        aws_secret_access_key=constants.AWS_SECRET_KEY,
+        region_name=settings.BUCKET_REGION,
+        endpoint_url=settings.BUCKET_ENDPOINT,
+        aws_access_key_id=settings.AWS_ACCESS_KEY,
+        aws_secret_access_key=settings.AWS_SECRET_KEY,
     )
 
 
@@ -74,7 +61,7 @@ def get_duckdb_endpoint() -> tuple[str, bool]:
         endpoint = s3.example.com
         use_ssl = true
     """
-    endpoint_url = constants.BUCKET_ENDPOINT
+    endpoint_url = settings.BUCKET_ENDPOINT
 
     if "://" not in endpoint_url:
         return endpoint_url.rstrip("/"), True
@@ -82,7 +69,7 @@ def get_duckdb_endpoint() -> tuple[str, bool]:
     parsed = urlparse(endpoint_url)
 
     if not parsed.hostname:
-        raise ValueError(f"Invalid BUCKET_ENDPOINT: {constants.BUCKET_ENDPOINT}")
+        raise ValueError(f"Invalid BUCKET_ENDPOINT: {settings.BUCKET_ENDPOINT}")
 
     endpoint = parsed.hostname
 
@@ -107,13 +94,13 @@ def configure_duckdb_s3(con: duckdb.DuckDBPyConnection) -> None:
         CREATE OR REPLACE SECRET s3_secret (
             TYPE S3,
             PROVIDER CONFIG,
-            KEY_ID {sql_string(constants.AWS_ACCESS_KEY)},
-            SECRET {sql_string(constants.AWS_SECRET_KEY)},
-            REGION {sql_string(constants.BUCKET_REGION)},
+            KEY_ID {sql_string(settings.AWS_ACCESS_KEY)},
+            SECRET {sql_string(settings.AWS_SECRET_KEY)},
+            REGION {sql_string(settings.BUCKET_REGION)},
             ENDPOINT {sql_string(endpoint)},
             USE_SSL {"true" if use_ssl else "false"},
             URL_STYLE 'path',
-            SCOPE {sql_string(f"s3://{constants.BUCKET_NAME}")}
+            SCOPE {sql_string(f"s3://{settings.BUCKET_NAME}")}
         )
         """
     )
@@ -132,7 +119,7 @@ def count_input_shards(s3_client, crawl_date: str) -> int:
     count = 0
 
     for page in paginator.paginate(
-        Bucket=constants.BUCKET_NAME,
+        Bucket=settings.BUCKET_NAME,
         Prefix=prefix,
     ):
         for obj in page.get("Contents", []):
@@ -167,7 +154,7 @@ def compact_crawl_date(crawl_date: str) -> None:
     )
 
     input_glob = (
-        f"s3://{constants.BUCKET_NAME}/"
+        f"s3://{settings.BUCKET_NAME}/"
         f"{RAW_PREFIX}/"
         f"crawl_date={crawl_date}/"
         f"prefecture=*/city=*/"
@@ -177,7 +164,7 @@ def compact_crawl_date(crawl_date: str) -> None:
     output_key = f"{COMPACTED_PREFIX}/crawl_date={crawl_date}/data.parquet"
 
     logger.info("Input: %s", input_glob)
-    logger.info("Output: s3://%s/%s", constants.BUCKET_NAME, output_key)
+    logger.info("Output: s3://%s/%s", settings.BUCKET_NAME, output_key)
 
     con = duckdb.connect()
 
@@ -248,13 +235,13 @@ def compact_crawl_date(crawl_date: str) -> None:
 
             logger.info(
                 "Uploading compacted Parquet to s3://%s/%s",
-                constants.BUCKET_NAME,
+                settings.BUCKET_NAME,
                 output_key,
             )
 
             s3_client.upload_file(
                 local_output,
-                constants.BUCKET_NAME,
+                settings.BUCKET_NAME,
                 output_key,
             )
 
@@ -264,6 +251,6 @@ def compact_crawl_date(crawl_date: str) -> None:
     logger.info(
         "Finished crawl_date=%s -> s3://%s/%s",
         crawl_date,
-        constants.BUCKET_NAME,
+        settings.BUCKET_NAME,
         output_key,
     )
