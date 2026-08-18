@@ -8,13 +8,13 @@ import time
 from typing import Tuple
 import datetime
 import boto3
-import constants
+import settings
 import logging
 from pathlib import Path
 import multiprocessing
-from locations import LOCATIONS
 from compactor import compact_crawl_date
 
+LOCATIONS = settings.SCRAPE_LOCATIONS
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
 
@@ -47,7 +47,7 @@ def upload_to_s3(file_path: str, s3_path: str, s3_client) -> None:
     Uploads a file to S3 with error handling
     """
     try:
-        s3_client.upload_file(file_path, constants.BUCKET_NAME, s3_path)
+        s3_client.upload_file(file_path, settings.BUCKET_NAME, s3_path)
         logger.info(f"[PID {os.getpid()}] Uploaded to S3: {s3_path}")
     except Exception as e:
         logger.error(f"[PID {os.getpid()}] Failed to upload {file_path} to S3: {e}")
@@ -84,7 +84,7 @@ def fetch_page(
     r = session.get(url, timeout=30)
     try:
         r.raise_for_status()
-    except requests.HTTPError as e:
+    except Exception as e:
         logger.exception(e)
     if save_file and partition_dir and s3_client:
         save_page_to_file(r, page, partition_dir, s3_client)
@@ -139,10 +139,10 @@ def scrape_location(location: dict) -> None:
 
     s3_client = boto3.client(
         "s3",
-        region_name=constants.BUCKET_REGION,
-        endpoint_url=constants.BUCKET_ENDPOINT,
-        aws_access_key_id=constants.AWS_ACCESS_KEY,
-        aws_secret_access_key=constants.AWS_SECRET_KEY,
+        region_name=settings.BUCKET_REGION,
+        endpoint_url=settings.BUCKET_ENDPOINT,
+        aws_access_key_id=settings.AWS_ACCESS_KEY,
+        aws_secret_access_key=settings.AWS_SECRET_KEY,
     )
 
     logger.info(f"[PID {os.getpid()}] Starting scrape for {prefecture}/{city}")
