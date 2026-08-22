@@ -19,6 +19,9 @@ def parse_listing_page(
     soup: BeautifulSoup,
     page: int,
 ) -> list[dict]:
+    """
+    Loops through each listing in the HTML and extracts information from it.
+    """
     records = []
 
     cassette_items = soup.find_all("div", class_="cassetteitem")
@@ -33,6 +36,9 @@ def parse_listing_page(
 
 
 def parse_cassette_item(item, page: int) -> list[dict]:
+    """
+    Loops through all the listings in an apartment group.
+    """
     property_name = item.find("div", class_="cassetteitem_content-title").text.strip()
 
     location = item.find("li", class_="cassetteitem_detail-col1").text.strip()
@@ -87,6 +93,9 @@ def parse_listing_row(
     building_age: str,
     building_type: str,
 ) -> dict:
+    """
+    Parses the listing information in the HTML
+    """
     rent = row.find(
         "span",
         class_="cassetteitem_price--rent",

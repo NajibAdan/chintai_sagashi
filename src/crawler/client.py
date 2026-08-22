@@ -8,10 +8,18 @@ logger = logging.getLogger(__name__)
 
 
 class SoftBlockError(Exception):
-    pass
+    """
+    Soft Block Exception for when SUUMO raises a 503-HTML page
+    """
 
 
 class SuumoClient:
+    """
+    A SUUMO client.
+
+    Fetches pages and checks for soft-blocks when raised on SUUMO.
+    """
+
     def __init__(
         self,
         user_agent: str,
@@ -29,6 +37,9 @@ class SuumoClient:
         )
 
     def fetch(self, url: str) -> requests.Response:
+        """
+        Fetches a URL and waits `request_delay` after each fetch
+        """
         logger.info("Fetching %s", url)
 
         response = self.session.get(
@@ -49,6 +60,9 @@ class SuumoClient:
         base_retry_delay: float = 3,
         retry_multiplier: float = 1.2,
     ) -> requests.Response:
+        """
+        Fetches a SUUMO page. Retries again after a delay when a soft-block is raised
+        """
         for attempt in range(1, max_attempts + 1):
             response = self.fetch(url)
 
@@ -76,6 +90,9 @@ SOFT_BLOCK_TITLES = {
 
 
 def is_soft_blocked(html: bytes) -> bool:
+    """
+    Checks if the HTML title contains any of the so-far know titles that SUUMO displays whenever a soft-block happens.
+    """
     soup = BeautifulSoup(html, "html.parser")
 
     title = soup.find("title")

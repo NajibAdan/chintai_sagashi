@@ -40,6 +40,9 @@ CRAWL_DATE = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
 
 
 def get_total_pages(soup: BeautifulSoup) -> int:
+    """
+    Gets the total number of pages to crawl in the pagination section of the page.
+    """
     pagination = soup.find(
         "ol",
         class_="pagination-parts",
@@ -57,6 +60,9 @@ def get_total_pages(soup: BeautifulSoup) -> int:
 
 
 def crawl_location(location: dict) -> CrawlResult:
+    """
+    Crawls all the pages in a location and saves the information.
+    """
     prefecture = location["prefecture"]
     city = location["city"]
     base_url = f"https://suumo.jp/chintai/{prefecture}/sa_{city}/?page={{}}&pc=50"

@@ -12,6 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 class CrawlStorage:
+    """
+    Uploads files to S3 and saves file to disk.
+    """
+
     def __init__(self):
         self.s3_client = boto3.client(
             "s3",
@@ -24,6 +28,9 @@ class CrawlStorage:
         self.bucket = settings.BUCKET_NAME
 
     def upload(self, local_path: str, s3_key: str) -> None:
+        """
+        Uploads files to S3
+        """
         self.s3_client.upload_file(
             local_path,
             self.bucket,
@@ -42,6 +49,9 @@ class CrawlStorage:
         page: int,
         partition_dir: str,
     ) -> str:
+        """
+        Saves the crawled page to html.gz format.
+        """
         html_directory = Path(partition_dir) / "html"
         html_directory.mkdir(
             parents=True,
@@ -77,6 +87,10 @@ class CrawlStorage:
         page: int,
         partition_dir: str,
     ) -> str:
+        """
+        Saves the parsed information to jsonl.gz.
+        First the file is saved to disk then uploaded to S3
+        """
         file_path = Path(partition_dir) / f"page-{page:06d}-part-0000.jsonl.gz"
 
         with gzip.open(
