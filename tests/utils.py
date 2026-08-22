@@ -1,4 +1,18 @@
+import requests
 from bs4 import BeautifulSoup
+
+
+class FakeResponse:
+    def __init__(self, html: str, status_code: int = 200):
+        self.content = html.encode()
+        self.text = html
+        self.status_code = status_code
+
+    def raise_for_status(self):
+        if self.status_code == 503:
+            raise requests.exceptions.HTTPError()
+        else:
+            pass
 
 
 def get_softblock_html() -> str:
