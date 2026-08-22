@@ -6,7 +6,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 import boto3
 import duckdb
-import settings
+import crawler.settings as settings
 
 
 LOG_DIR = Path("logs")
