@@ -67,7 +67,7 @@ class SuumoClient:
         for attempt in range(1, max_attempts + 1):
             response = self.fetch(url)
 
-            if not is_soft_blocked(response.content) or response.status_code in [503]:
+            if not is_soft_blocked(response.content):
                 return response
 
             delay = base_retry_delay * (retry_multiplier**attempt)
