@@ -1,8 +1,10 @@
 import gzip
 import json
 
-from crawler.storage import CrawlStorage
 from utils import FakeResponse, get_listing_html
+
+from crawler.storage import CrawlStorage
+
 
 def test_save_records(tmp_path, monkeypatch):
     storage = CrawlStorage()
@@ -42,10 +44,7 @@ def test_save_records(tmp_path, monkeypatch):
         "rt",
         encoding="utf-8",
     ) as f:
-        rows = [
-            json.loads(line)
-            for line in f
-        ]
+        rows = [json.loads(line) for line in f]
 
     assert rows == records
     assert len(rows) == 2
@@ -86,15 +85,10 @@ def test_save_records_preserves_unicode(
     ) as f:
         result = json.loads(f.readline())
 
-    assert (
-        result["property_name"]
-        == "仙台駅前マンション"
-    )
+    assert result["property_name"] == "仙台駅前マンション"
 
-    assert (
-        result["location"]
-        == "宮城県仙台市青葉区"
-    )
+    assert result["location"] == "宮城県仙台市青葉区"
+
 
 def test_save_html(tmp_path, monkeypatch):
     storage = CrawlStorage()
@@ -125,10 +119,11 @@ def test_save_html(tmp_path, monkeypatch):
     ) as f:
         html = f.read()
 
-    assert "<title>【SUUMO】千葉市の賃貸(賃貸マンション・アパート)住宅のお部屋探し物件情報</title>" in html
-
-    assert path.endswith(
-        "html/page-000003.html.gz"
+    assert (
+        "<title>【SUUMO】千葉市の賃貸(賃貸マンション・アパート)住宅のお部屋探し物件情報</title>"
+        in html
     )
+
+    assert path.endswith("html/page-000003.html.gz")
 
     assert len(uploaded) == 1

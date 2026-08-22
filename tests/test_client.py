@@ -1,11 +1,8 @@
+import pytest
 from utils import FakeResponse, get_listing_html, get_softblock_html
 
-from crawler.client import is_soft_blocked
+from crawler.client import SoftBlockError, SuumoClient, is_soft_blocked
 
-import pytest
-import requests
-
-from crawler.client import SuumoClient, SoftBlockError
 
 def test_detects_soft_block():
     html = get_softblock_html()
@@ -38,21 +35,24 @@ def test_fetch_page_returns_normal_response(monkeypatch):
     assert result is response
     assert len(calls) == 1
 
+
 def test_fetch_page_retries_soft_blocks(monkeypatch):
     client = SuumoClient(
         user_agent="test-agent",
         request_delay=0,
     )
 
-    blocked = FakeResponse(get_softblock_html(),status_code=503)
+    blocked = FakeResponse(get_softblock_html(), status_code=503)
 
     success = FakeResponse(get_listing_html())
 
-    responses = iter([
-        blocked,
-        blocked,
-        success,
-    ])
+    responses = iter(
+        [
+            blocked,
+            blocked,
+            success,
+        ]
+    )
 
     def fake_get(url, timeout):
         return next(responses)
@@ -67,11 +67,10 @@ def test_fetch_page_retries_soft_blocks(monkeypatch):
         "crawler.client.time.sleep",
         lambda _: None,
     )
-    result = client.fetch_page(
-        "https://example.com"
-    )
+    result = client.fetch_page("https://example.com")
 
     assert result is success
+
 
 def test_fetch_page_retries_expected_number_of_times(monkeypatch):
     client = SuumoClient(
@@ -79,14 +78,16 @@ def test_fetch_page_retries_expected_number_of_times(monkeypatch):
         request_delay=0,
     )
 
-    blocked = FakeResponse(get_softblock_html(),status_code=503)
+    blocked = FakeResponse(get_softblock_html(), status_code=503)
     success = FakeResponse(get_listing_html())
-    
-    responses = iter([
-        blocked,
-        blocked,
-        success,
-    ])
+
+    responses = iter(
+        [
+            blocked,
+            blocked,
+            success,
+        ]
+    )
 
     request_count = 0
 
@@ -106,11 +107,10 @@ def test_fetch_page_retries_expected_number_of_times(monkeypatch):
         lambda _: None,
     )
 
-    client.fetch_page(
-        "https://example.com"
-    )
+    client.fetch_page("https://example.com")
 
     assert request_count == 3
+
 
 def test_fetch_page_raises_after_max_retries(monkeypatch):
     client = SuumoClient(
@@ -118,7 +118,7 @@ def test_fetch_page_raises_after_max_retries(monkeypatch):
         request_delay=0,
     )
 
-    blocked = FakeResponse(get_softblock_html(),status_code=503)
+    blocked = FakeResponse(get_softblock_html(), status_code=503)
 
     def fake_get(url, timeout):
         return blocked

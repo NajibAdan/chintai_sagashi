@@ -1,7 +1,9 @@
-from bs4 import BeautifulSoup
 import requests
+from bs4 import BeautifulSoup
+
+
 class FakeResponse:
-    def __init__(self, html: str,status_code: int=200):
+    def __init__(self, html: str, status_code: int = 200):
         self.content = html.encode()
         self.text = html
         self.status_code = status_code
@@ -11,6 +13,7 @@ class FakeResponse:
             raise requests.exceptions.HTTPError()
         else:
             pass
+
 
 def get_softblock_html() -> str:
     with open("tests/fixtures/soft-block.html", encoding="utf-8") as f:
