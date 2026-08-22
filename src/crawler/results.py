@@ -6,6 +6,10 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class CrawlResult:
+    """
+    A dataclass that stores the crawl result for each location.
+    """
+
     prefecture: str
     city: str
     total_pages: int
@@ -38,6 +42,9 @@ class CrawlResult:
 
 
 def print_summary_results(results: list[CrawlResult]) -> None:
+    """
+    Prints the summary crawl results for each location
+    """
     logger.info("=" * 60)
     logger.info("CRAWL SUMMARY")
     logger.info("=" * 60)
@@ -47,6 +54,9 @@ def print_summary_results(results: list[CrawlResult]) -> None:
 
 
 def print_total_results(results: list[CrawlResult]) -> None:
+    """
+    Prints the total crawl results across all locations
+    """
     total_pages = sum(result.total_pages for result in results)
 
     successful_pages = sum(result.successful_pages for result in results)
@@ -70,5 +80,8 @@ def print_total_results(results: list[CrawlResult]) -> None:
 
 
 def print_results(results: list[CrawlResult]) -> None:
+    """
+    Prints the summary crawl results for each location and the total crawl results across all locations
+    """
     print_summary_results(results=results)
     print_total_results(results=results)
