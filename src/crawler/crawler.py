@@ -174,9 +174,11 @@ def crawl_location(location: dict) -> CrawlResult:
 
 
 if __name__ == "__main__":
-    logger.info(f"Crawler is running in {settings.ENVIRONMENT} environment")
+    logger.info("Crawler is running in %s environment", settings.ENVIRONMENT)
     logger.info(
-        f"Starting parallel SUUMO crawler for {len(LOCATIONS)} locations with {PROCESS_POOL_SIZE} workers"
+        "Starting parallel SUUMO crawler for %s locations with %s workers",
+        len(LOCATIONS),
+        PROCESS_POOL_SIZE,
     )
 
     with multiprocessing.Pool(processes=PROCESS_POOL_SIZE) as pool:
