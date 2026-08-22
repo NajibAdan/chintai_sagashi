@@ -1,4 +1,5 @@
 from utils import get_listing_page
+
 from crawler.parser import parse_listing_page
 
 
@@ -16,9 +17,10 @@ def test_parse_listing_page():
     assert record["property_name"]
     assert record["monthly_rent"]
 
+
 def test_first_listing_values():
     soup = get_listing_page()
-    records =  parse_listing_page(soup, page=1)
+    records = parse_listing_page(soup, page=1)
     assert len(records) > 0
     record = records[0]
 

@@ -1,7 +1,8 @@
 import datetime
 import hashlib
-from os import getpid
 import logging
+from os import getpid
+
 from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import boto3
 
-import crawler.settings as settings
+from crawler import settings
 
 logger = logging.getLogger(__name__)
 

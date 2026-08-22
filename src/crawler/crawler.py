@@ -1,16 +1,18 @@
-from bs4 import BeautifulSoup
+import datetime
+import logging
+import multiprocessing
 import os
 import time
-import datetime
-import crawler.settings as settings
-import logging
 from pathlib import Path
-import multiprocessing
+
+from bs4 import BeautifulSoup
+
+from crawler import settings
+from crawler.client import SuumoClient
 from crawler.compactor import compact_crawl_date
 from crawler.parser import parse_listing_page
-from crawler.client import SuumoClient
-from crawler.storage import CrawlStorage
 from crawler.results import CrawlResult, print_results
+from crawler.storage import CrawlStorage
 
 LOCATIONS = settings.CRAWL_LOCATIONS
 LOG_DIR = Path("logs")

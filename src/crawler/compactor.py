@@ -4,10 +4,11 @@ import os
 import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
+
 import boto3
 import duckdb
-import crawler.settings as settings
 
+from crawler import settings
 
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
