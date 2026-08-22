@@ -41,14 +41,15 @@ class SuumoClient:
         Fetches a URL and waits `request_delay` after each fetch
         """
         logger.info("Fetching %s", url)
+        try:
+            response = self.session.get(
+                url,
+                timeout=self.timeout,
+            )
 
-        response = self.session.get(
-            url,
-            timeout=self.timeout,
-        )
-
-        response.raise_for_status()
-
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            logger.error(e)
         time.sleep(self.request_delay)
 
         return response
@@ -66,7 +67,7 @@ class SuumoClient:
         for attempt in range(1, max_attempts + 1):
             response = self.fetch(url)
 
-            if not is_soft_blocked(response.content):
+            if not is_soft_blocked(response.content) or response.status_code in [503]:
                 return response
 
             delay = base_retry_delay * (retry_multiplier**attempt)
