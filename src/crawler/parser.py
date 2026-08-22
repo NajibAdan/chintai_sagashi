@@ -30,7 +30,7 @@ def parse_listing_page(
         try:
             records.extend(parse_cassette_item(item, page))
         except (AttributeError, KeyError, IndexError) as e:
-            logger.warning(f"[PID {getpid()}] Failed to parse apartment row: {e}")
+            logger.warning("[PID %s] Failed to parse apartment row: %s", getpid(), e)
 
     return records
 
@@ -79,7 +79,7 @@ def parse_cassette_item(item, page: int) -> list[dict]:
             records.append(record)
 
         except (AttributeError, KeyError, IndexError) as e:
-            logger.warning(f"[PID {getpid()}] Failed to parse apartment row: {e}")
+            logger.warning("[PID %s] Failed to parse apartment row: %s", getpid(), e)
 
     return records
 

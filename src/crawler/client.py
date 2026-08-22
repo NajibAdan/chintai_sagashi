@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 
 import requests
@@ -40,7 +41,7 @@ class SuumoClient:
         """
         Fetches a URL and waits `request_delay` after each fetch
         """
-        logger.info("Fetching %s", url)
+        logger.info("[PID %s] Fetching %s", os.getpid(), url)
         try:
             response = self.session.get(
                 url,
@@ -49,7 +50,7 @@ class SuumoClient:
 
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:
-            logger.error(e)
+            logger.error("[PID %s] %s", os.getpid(), e)
         time.sleep(self.request_delay)
 
         return response
@@ -73,7 +74,8 @@ class SuumoClient:
             delay = base_retry_delay * (retry_multiplier**attempt)
 
             logger.warning(
-                "Soft blocked. Attempt %s/%s. Retrying in %.1f seconds.",
+                "[PID %s] Soft blocked. Attempt %s/%s. Retrying in %.1f seconds.",
+                os.getpid(),
                 attempt,
                 max_attempts,
                 delay,
