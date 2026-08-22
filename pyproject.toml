@@ -16,8 +16,19 @@ dependencies = [
     "ruff>=0.14.0",
 ]
 
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "crawler"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [dependency-groups]
 dev = [
     "duckdb>=1.2.2",
     "ipykernel>=6.29.5",
+    "pytest>=9.1.1",
 ]
