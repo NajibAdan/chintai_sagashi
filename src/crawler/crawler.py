@@ -8,7 +8,7 @@ from pathlib import Path
 from bs4 import BeautifulSoup
 
 from crawler import settings
-from crawler.client import SuumoClient
+from crawler.client import SuumoClient, SoftBlockError
 from crawler.compactor import compact_crawl_date
 from crawler.parser import parse_listing_page
 from crawler.results import CrawlResult, print_results
@@ -118,7 +118,14 @@ def crawl_location(location: dict) -> CrawlResult:
             1,
             MAX_RETRY_ATTEMPTS + 1,
         ):
-            response = client.fetch_page(url)
+            try:
+                response = client.fetch_page(url)
+            except SoftBlockError as e:
+                logger.error("[PID %s] %s", os.getpid(), e)
+                continue
+            except Exception as e:
+                logger.error("[PID %s] %s", os.getpid(), e)
+                continue
 
             storage.save_html(
                 response=response,
