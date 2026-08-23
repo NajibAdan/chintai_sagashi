@@ -9,7 +9,7 @@ from dataclasses import asdict
 from requests import Response
 
 from crawler import settings
-from crawler.results import CrawlResult
+from crawler.results import CrawlResult, CrawlSummary
 
 logger = logging.getLogger(__name__)
 
@@ -144,6 +144,35 @@ class CrawlStorage:
 
         logger.info(
             "[PID %s] Saved manifest --> %s",
+            os.getpid(),
+            file_path,
+        )
+
+        self.upload(
+            str(file_path),
+            str(file_path),
+        )
+
+    def save_crawl_manifest(
+        self,
+        summary: CrawlSummary,
+        crawl_dir: str,
+    ) -> None:
+        file_path = Path(crawl_dir) / "_manifest.json"
+
+        with file_path.open(
+            "w",
+            encoding="utf-8",
+        ) as file:
+            json.dump(
+                summary.to_dict(),
+                file,
+                ensure_ascii=False,
+                indent=2,
+            )
+
+        logger.info(
+            "[PID %s] Saved crawl manifest --> %s",
             os.getpid(),
             file_path,
         )
