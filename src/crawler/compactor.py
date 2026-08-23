@@ -1,4 +1,5 @@
 import datetime
+import json
 import logging
 import os
 import tempfile
@@ -9,6 +10,7 @@ import boto3
 import duckdb
 
 from crawler import settings
+from crawler.results import CompactionResult
 
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
@@ -24,6 +26,12 @@ def sql_string(value: str) -> str:
     Escape a Python string for use as a DuckDB SQL string literal.
     """
     return "'" + value.replace("'", "''") + "'"
+
+
+def load_crawl_manifest(s3_client, crawl_date: str) -> dict:
+    key = f"{RAW_PREFIX}/crawl_date={crawl_date}/_manifest.json"
+    response = s3_client.get_object(Bucket=settings.BUCKET_NAME, Key=key)
+    return json.loads(response["Body"].read().decode("utf-8"))
 
 
 def validate_crawl_date(crawl_date: str) -> None:
@@ -107,7 +115,7 @@ def configure_duckdb_s3(con: duckdb.DuckDBPyConnection) -> None:
     )
 
 
-def count_input_shards(s3_client, crawl_date: str) -> int:
+def list_input_shards(s3_client, crawl_date: str) -> list[str]:
     """
     Count JSONL shards for a crawl date.
 
@@ -117,7 +125,7 @@ def count_input_shards(s3_client, crawl_date: str) -> int:
 
     paginator = s3_client.get_paginator("list_objects_v2")
 
-    count = 0
+    shards = []
 
     for page in paginator.paginate(
         Bucket=settings.BUCKET_NAME,
@@ -127,12 +135,27 @@ def count_input_shards(s3_client, crawl_date: str) -> int:
             key = obj["Key"]
 
             if key.endswith(".jsonl.gz"):
-                count += 1
+                shards.append(key)
 
-    return count
+    return shards
 
 
-def compact_crawl_date(crawl_date: str) -> None:
+def validate_input_shards(
+    manifest: dict,
+    shard_count: int,
+) -> None:
+    expected_shards = sum(
+        location["successful_pages"] for location in manifest["locations"]
+    )
+
+    if shard_count != expected_shards:
+        raise RuntimeError(
+            f"Expected {expected_shards} JSONL shards "
+            f"according to crawl manifest, but found {shard_count}"
+        )
+
+
+def compact_crawl_date(crawl_date: str) -> CompactionResult:
     """
     Compacts a provided crawl_date to a single parquet file.
     """
@@ -140,13 +163,20 @@ def compact_crawl_date(crawl_date: str) -> None:
 
     s3_client = get_s3_client()
 
-    shard_count = count_input_shards(
+    manifest = load_crawl_manifest(
+        s3_client,
+        crawl_date,
+    )
+    input_shards = list_input_shards(
         s3_client=s3_client,
         crawl_date=crawl_date,
     )
 
-    if shard_count == 0:
-        raise RuntimeError(f"No JSONL shards found for crawl_date={crawl_date}")
+    shard_count = len(input_shards)
+    validate_input_shards(
+        manifest,
+        shard_count,
+    )
 
     logger.info(
         "Found %s input shards for crawl_date=%s",
@@ -162,10 +192,11 @@ def compact_crawl_date(crawl_date: str) -> None:
         f"page-*.jsonl.gz"
     )
 
-    output_key = f"{COMPACTED_PREFIX}/crawl_date={crawl_date}/data.parquet"
+    parquet_output_key = f"{COMPACTED_PREFIX}/crawl_date={crawl_date}/data.parquet"
+    manifest_output_key = f"{COMPACTED_PREFIX}/crawl_date={crawl_date}/_manifest.json"
 
     logger.info("Input: %s", input_glob)
-    logger.info("Output: s3://%s/%s", settings.BUCKET_NAME, output_key)
+    logger.info("Output: s3://%s/%s", settings.BUCKET_NAME, parquet_output_key)
 
     con = duckdb.connect()
 
@@ -190,9 +221,13 @@ def compact_crawl_date(crawl_date: str) -> None:
         """
 
         with tempfile.TemporaryDirectory(prefix="suumo_compactor_") as temp_dir:
-            local_output = os.path.join(
+            local_parquet_output = os.path.join(
                 temp_dir,
                 f"suumo-{crawl_date}.parquet",
+            )
+
+            local_manifest_output = os.path.join(
+                temp_dir, f"{crawl_date}_manifest.json"
             )
 
             logger.info(
@@ -205,7 +240,7 @@ def compact_crawl_date(crawl_date: str) -> None:
                 COPY (
                     {source_query}
                 )
-                TO {sql_string(local_output)}
+                TO {sql_string(local_parquet_output)}
                 (
                     FORMAT PARQUET,
                     COMPRESSION ZSTD,
@@ -219,11 +254,11 @@ def compact_crawl_date(crawl_date: str) -> None:
             row_count = con.execute(
                 f"""
                 SELECT count(*)
-                FROM read_parquet({sql_string(local_output)})
+                FROM read_parquet({sql_string(local_parquet_output)})
                 """
             ).fetchone()[0]
 
-            file_size = os.path.getsize(local_output)
+            file_size = os.path.getsize(local_parquet_output)
 
             if row_count == 0:
                 raise RuntimeError(f"Compaction produced zero rows for {crawl_date}")
@@ -237,13 +272,37 @@ def compact_crawl_date(crawl_date: str) -> None:
             logger.info(
                 "Uploading compacted Parquet to s3://%s/%s",
                 settings.BUCKET_NAME,
-                output_key,
+                parquet_output_key,
             )
 
             s3_client.upload_file(
-                local_output,
+                local_parquet_output,
                 settings.BUCKET_NAME,
-                output_key,
+                parquet_output_key,
+            )
+            compacted_manifest = {
+                "crawl_date": crawl_date,
+                "input_shards": shard_count,
+                "output_records": row_count,
+                "output_size_bytes": file_size,
+                "source_crawl": {
+                    "total_pages": manifest["total_pages"],
+                    "successful_pages": manifest["successful_pages"],
+                    "failed_pages": manifest["failed_pages"],
+                    "completion_rate": manifest["completion_rate"],
+                },
+            }
+            with open(local_manifest_output, "w", encoding="utf-8") as file:
+                json.dump(
+                    compacted_manifest,
+                    file,
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            s3_client.upload_file(
+                local_manifest_output,
+                settings.BUCKET_NAME,
+                manifest_output_key,
             )
 
     finally:
@@ -253,5 +312,13 @@ def compact_crawl_date(crawl_date: str) -> None:
         "Finished crawl_date=%s -> s3://%s/%s",
         crawl_date,
         settings.BUCKET_NAME,
-        output_key,
+        parquet_output_key,
+    )
+
+    return CompactionResult(
+        crawl_date=crawl_date,
+        input_shards=shard_count,
+        output_records=row_count,
+        output_size_bytes=file_size,
+        output_key=local_parquet_output,
     )

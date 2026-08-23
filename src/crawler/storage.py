@@ -2,10 +2,11 @@ import gzip
 import json
 import logging
 import os
+import shutil
+from dataclasses import asdict
 from pathlib import Path
 
 import boto3
-from dataclasses import asdict
 from requests import Response
 
 from crawler import settings
@@ -181,3 +182,32 @@ class CrawlStorage:
             str(file_path),
             str(file_path),
         )
+
+    def delete_crawl_date(self, crawl_date: str) -> None:
+        prefix = f"data/raw/suumo/crawl_date={crawl_date}/"
+
+        # Delete S3 objects
+        paginator = self.s3_client.get_paginator("list_objects_v2")
+        logger.info("[PID %s] Deleting S3 Objects in %s.....", os.getpid(), prefix)
+        obj_count = 0
+        for page in paginator.paginate(
+            Bucket=self.bucket,
+            Prefix=prefix,
+        ):
+            objects = [{"Key": obj["Key"]} for obj in page.get("Contents", [])]
+            if objects:
+                self.s3_client.delete_objects(
+                    Bucket=self.bucket,
+                    Delete={"Objects": objects},
+                )
+            obj_count += len(objects)
+        logger.info("[PID %s] Deleted %s objects from S3", os.getpid(), obj_count)
+
+        # Delete local data
+        local_path = Path(prefix)
+        logger.info(
+            "[PID %s] Deleting local raw data in %s.....", os.getpid(), local_path
+        )
+        if local_path.exists():
+            shutil.rmtree(local_path)
+        logger.info("[PID %s] Deleted local raw data", os.getpid())
