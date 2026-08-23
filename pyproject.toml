@@ -26,11 +26,6 @@ module-name = "crawler"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
-[tool.ruff.lint]
-select = [
-    "G"
-]
-
 [dependency-groups]
 dev = [
     "duckdb>=1.2.2",

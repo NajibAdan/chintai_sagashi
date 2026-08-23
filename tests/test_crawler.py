@@ -1,6 +1,7 @@
-import crawler.crawler as crawler_module
 import re
-import pytest
+
+import crawler.crawler as crawler_module
+from crawler.client import SoftBlockError
 
 
 class FakeResponse:
@@ -28,7 +29,7 @@ class FakeClient:
         page = int(match.group(1))
 
         if page == 2:
-            raise Exception("Maximum retry attempts reached")
+            raise SoftBlockError("Maximum retry attempts reached")
         return FakeResponse(page)
 
 

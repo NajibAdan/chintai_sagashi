@@ -5,6 +5,15 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class CompactionResult:
+    crawl_date: str
+    input_shards: int
+    output_records: int
+    output_size_bytes: int
+    output_key: str
+
+
+@dataclass
 class CrawlResult:
     prefecture: str
     city: str

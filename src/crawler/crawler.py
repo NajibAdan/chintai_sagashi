@@ -6,9 +6,10 @@ import time
 from pathlib import Path
 
 from bs4 import BeautifulSoup
+from requests.exceptions import RequestException
 
 from crawler import settings
-from crawler.client import SuumoClient, SoftBlockError
+from crawler.client import SoftBlockError, SuumoClient
 from crawler.compactor import compact_crawl_date
 from crawler.parser import parse_listing_page
 from crawler.results import CrawlResult, CrawlSummary, log_crawl_summary
@@ -120,10 +121,7 @@ def crawl_location(location: dict) -> CrawlResult:
         ):
             try:
                 response = client.fetch_page(url)
-            except SoftBlockError as e:
-                logger.error("[PID %s] %s", os.getpid(), e)
-                continue
-            except Exception as e:
+            except (SoftBlockError, RequestException) as e:
                 logger.error("[PID %s] %s", os.getpid(), e)
                 continue
 
@@ -183,6 +181,8 @@ def crawl_location(location: dict) -> CrawlResult:
 
 if __name__ == "__main__":
     logger.info("Crawler is running in %s environment", settings.ENVIRONMENT)
+    storage = CrawlStorage()
+    storage.delete_crawl_date(CRAWL_DATE)
     logger.info(
         "Starting parallel SUUMO crawler for %s locations with %s workers",
         len(LOCATIONS),
@@ -201,8 +201,6 @@ if __name__ == "__main__":
 
     crawl_dir = f"data/raw/suumo/crawl_date={CRAWL_DATE}"
 
-    storage = CrawlStorage()
-
     storage.save_crawl_manifest(
         summary=summary,
         crawl_dir=crawl_dir,
@@ -210,4 +208,9 @@ if __name__ == "__main__":
 
     logger.info("Starting compactor")
 
-    compact_crawl_date(CRAWL_DATE)
+    compaction_result = compact_crawl_date(CRAWL_DATE)
+
+    logger.info(
+        "Pipeline complete: %s records compacted",
+        compaction_result.output_records,
+    )
