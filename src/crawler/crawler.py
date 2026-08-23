@@ -11,7 +11,7 @@ from crawler import settings
 from crawler.client import SuumoClient, SoftBlockError
 from crawler.compactor import compact_crawl_date
 from crawler.parser import parse_listing_page
-from crawler.results import CrawlResult, print_results
+from crawler.results import CrawlResult, CrawlSummary, log_crawl_summary
 from crawler.storage import CrawlStorage
 
 LOCATIONS = settings.CRAWL_LOCATIONS
@@ -177,6 +177,7 @@ def crawl_location(location: dict) -> CrawlResult:
         prefecture,
         city,
     )
+    storage.save_manifest(result=result, partition_dir=partition_dir)
     return result
 
 
@@ -191,8 +192,22 @@ if __name__ == "__main__":
     with multiprocessing.Pool(processes=PROCESS_POOL_SIZE) as pool:
         results = pool.map(crawl_location, LOCATIONS)
 
-    print_results(results)
-    logger.info("All locations crawled")
+    summary = CrawlSummary(
+        crawl_date=CRAWL_DATE,
+        locations=results,
+    )
+
+    log_crawl_summary(summary)
+
+    crawl_dir = f"data/raw/suumo/crawl_date={CRAWL_DATE}"
+
+    storage = CrawlStorage()
+
+    storage.save_crawl_manifest(
+        summary=summary,
+        crawl_dir=crawl_dir,
+    )
 
     logger.info("Starting compactor")
+
     compact_crawl_date(CRAWL_DATE)

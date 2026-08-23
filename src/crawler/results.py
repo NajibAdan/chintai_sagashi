@@ -6,10 +6,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class CrawlResult:
-    """
-    A dataclass that stores the crawl result for each location.
-    """
-
     prefecture: str
     city: str
     total_pages: int
@@ -17,9 +13,27 @@ class CrawlResult:
     failed_pages: list[int] = field(default_factory=list)
     records_written: int = 0
 
+
+@dataclass
+class CrawlSummary:
+    crawl_date: str
+    locations: list[CrawlResult]
+
     @property
-    def missed_pages(self) -> int:
-        return len(self.failed_pages)
+    def total_pages(self) -> int:
+        return sum(result.total_pages for result in self.locations)
+
+    @property
+    def successful_pages(self) -> int:
+        return sum(result.successful_pages for result in self.locations)
+
+    @property
+    def failed_pages(self) -> int:
+        return sum(len(result.failed_pages) for result in self.locations)
+
+    @property
+    def records_written(self) -> int:
+        return sum(result.records_written for result in self.locations)
 
     @property
     def completion_rate(self) -> float:
@@ -28,60 +42,54 @@ class CrawlResult:
 
         return self.successful_pages / self.total_pages
 
-    def log_results(self) -> None:
-        logger.info(
-            "%s/%s: %s/%s pages (%.2f%%), %s records, failed=%s",
-            self.prefecture,
-            self.city,
-            self.successful_pages,
-            self.total_pages,
-            self.completion_rate * 100,
-            self.records_written,
-            self.failed_pages or "none",
-        )
+    def to_dict(self) -> dict:
+        return {
+            "crawl_date": self.crawl_date,
+            "total_locations": len(self.locations),
+            "total_pages": self.total_pages,
+            "successful_pages": self.successful_pages,
+            "failed_pages": self.failed_pages,
+            "records_written": self.records_written,
+            "completion_rate": self.completion_rate,
+            "locations": [
+                {
+                    "prefecture": result.prefecture,
+                    "city": result.city,
+                    "total_pages": result.total_pages,
+                    "successful_pages": result.successful_pages,
+                    "failed_pages": result.failed_pages,
+                    "records_written": result.records_written,
+                }
+                for result in self.locations
+            ],
+        }
 
 
-def print_summary_results(results: list[CrawlResult]) -> None:
-    """
-    Prints the summary crawl results for each location
-    """
+def log_crawl_summary(
+    summary: CrawlSummary,
+) -> None:
     logger.info("=" * 60)
     logger.info("CRAWL SUMMARY")
     logger.info("=" * 60)
 
-    for result in results:
-        result.log_results()
-
-
-def print_total_results(results: list[CrawlResult]) -> None:
-    """
-    Prints the total crawl results across all locations
-    """
-    total_pages = sum(result.total_pages for result in results)
-
-    successful_pages = sum(result.successful_pages for result in results)
-
-    total_records = sum(result.records_written for result in results)
-
-    failed_pages = sum(result.missed_pages for result in results)
-
-    completion_rate = successful_pages / total_pages if total_pages else 0
+    for result in summary.locations:
+        logger.info(
+            "%s/%s: %s/%s pages, %s records, failed=%s",
+            result.prefecture,
+            result.city,
+            result.successful_pages,
+            result.total_pages,
+            result.records_written,
+            result.failed_pages or "none",
+        )
 
     logger.info("-" * 60)
 
     logger.info(
         "TOTAL: %s/%s pages (%.2f%%), %s records, %s failed pages",
-        successful_pages,
-        total_pages,
-        completion_rate * 100,
-        total_records,
-        failed_pages,
+        summary.successful_pages,
+        summary.total_pages,
+        summary.completion_rate * 100,
+        summary.records_written,
+        summary.failed_pages,
     )
-
-
-def print_results(results: list[CrawlResult]) -> None:
-    """
-    Prints the summary crawl results for each location and the total crawl results across all locations
-    """
-    print_summary_results(results=results)
-    print_total_results(results=results)
