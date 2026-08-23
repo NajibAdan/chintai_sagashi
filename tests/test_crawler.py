@@ -40,7 +40,7 @@ class FakeStorage:
     def save_html(
         self,
         response,
-        page,
+        page: int,
         partition_dir,
     ):
         self.saved_html.append(page)
@@ -57,6 +57,9 @@ class FakeStorage:
                 "records": records,
             }
         )
+
+    def save_manifest(self, result, partition_dir):
+        pass
 
 
 def test_crawl_location_continues_after_failed_page(

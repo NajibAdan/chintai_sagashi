@@ -10,6 +10,7 @@ class CrawlResult:
     A dataclass that stores the crawl result for each location.
     """
 
+    crawl_date: str
     prefecture: str
     city: str
     total_pages: int

@@ -94,7 +94,9 @@ def crawl_location(location: dict) -> CrawlResult:
             total_pages,
             settings.PAGES_TO_FETCH,
         )
-    result = CrawlResult(prefecture=prefecture, city=city, total_pages=total_pages)
+    result = CrawlResult(
+        crawl_date=CRAWL_DATE, prefecture=prefecture, city=city, total_pages=total_pages
+    )
 
     logger.info(
         "[PID %s] Found %s pages for %s/%s",
@@ -177,6 +179,7 @@ def crawl_location(location: dict) -> CrawlResult:
         prefecture,
         city,
     )
+    storage.save_manifest(result=result, partition_dir=partition_dir)
     return result
 
 
