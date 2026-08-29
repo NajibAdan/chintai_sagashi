@@ -1,6 +1,7 @@
 {{ config(
-    materialized='external',
-     location='s3://{{ env_var("BUCKET_NAME") }}/data/curated/{{ model.name }}.parquet'
+    materialized='incremental',
+    incremental_strategy='merge',
+    unique_key='listing_id'
 ) }}
 with snapshots as (
 

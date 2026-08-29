@@ -1,6 +1,6 @@
 {{ config(
-    materialized='external',
-     location='s3://{{ env_var("BUCKET_NAME") }}/data/curated/{{ model.name }}.parquet'
+    materialized='view',
+    event_time='crawl_date'
 ) }}
 with source as (
 

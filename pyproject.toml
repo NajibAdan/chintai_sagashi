@@ -9,7 +9,7 @@ dependencies = [
     "boto3>=1.40.50",
     "dbt>=1.0.0.40.18",
     "dbt-duckdb>=1.11.0",
-    "duckdb>=1.2.2",
+    "duckdb==1.5.5",
     "pandas>=2.2.3",
     "python-dotenv>=1.1.1",
     "requests>=2.32.3",

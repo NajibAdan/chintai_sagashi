@@ -1,12 +1,16 @@
 {{ config(
-    materialized='external',
-     location='s3://{{ env_var("BUCKET_NAME") }}/data/curated/{{ model.name }}.parquet'
+    materialized='incremental',
+    incremental_strategy='microbatch',
+    event_time='crawl_date',
+    begin='2025-10-10',
+    batch_size='day',
+    partitioned_by=['crawl_date']
 ) }}
+
 with listings as (
 
     select *
     from {{ ref('stg_suumo_listings') }}
-
 ),
 
 deduplicated as (
