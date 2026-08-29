@@ -1,6 +1,9 @@
 {{ config(
     materialized='incremental',
-    incremental_strategy='append',
+    incremental_strategy='microbatch',
+    event_time='crawl_date',
+    begin='2025-10-10',
+    batch_size='day',
     partitioned_by=['crawl_date']
 ) }}
 
@@ -8,19 +11,6 @@ with listings as (
 
     select *
     from {{ ref('stg_suumo_listings') }}
-
-    {% if is_incremental() %}
-
-    where crawl_date > (
-        select coalesce(
-            max(crawl_date),
-            date '1900-01-01'
-        )
-        from {{ this }}
-    )
-
-    {% endif %}
-
 ),
 
 deduplicated as (
