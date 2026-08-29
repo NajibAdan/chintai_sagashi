@@ -1,11 +1,25 @@
 {{ config(
-    materialized='external',
-     location='s3://{{ env_var("BUCKET_NAME") }}/data/curated/{{ model.name }}.parquet'
+    materialized='incremental',
+    incremental_strategy='append',
+    partitioned_by=['crawl_date']
 ) }}
+
 with listings as (
 
     select *
     from {{ ref('stg_suumo_listings') }}
+
+    {% if is_incremental() %}
+
+    where crawl_date > (
+        select coalesce(
+            max(crawl_date),
+            date '1900-01-01'
+        )
+        from {{ this }}
+    )
+
+    {% endif %}
 
 ),
 
