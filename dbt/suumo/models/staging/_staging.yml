@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: stg_suumo_listings
+    description: Clean and normalized crawled SUUMO listing. 
+
+    columns:
+      - name: listing_id
+        data_tests:
+          - not_null
+      - name: crawl_date
+        data_tests:
+          - not_null
+
+      - name: crawl_ts
+        data_tests:
+          - not_null
+
+      - name: url
+        data_tests:
+          - not_null
+
+      - name: prefecture
+        data_tests:
+          - not_null
+
+      - name: city
+        data_tests:
+          - not_null

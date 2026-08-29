@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: fct_listing_snapshots
+    description: One snapshot of a SUUMO listing for each crawl date.
+
+    columns:
+      - name: listing_id
+        data_tests:
+          - not_null:
+              config:
+                where: "crawl_date >= current_date - interval '7 days'"
+
+      - name: crawl_date
+        data_tests:
+          - not_null
+
+      - name: url
+        data_tests:
+          - not_null
