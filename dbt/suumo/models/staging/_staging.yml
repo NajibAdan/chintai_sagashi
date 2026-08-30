@@ -6,24 +6,78 @@ models:
 
     columns:
       - name: listing_id
+        description: Unique identifier for each listing. Generated from url by extracting any numbers after bc(bc=([0-9]+))
         data_tests:
-          - not_null
+          - not_null:
+              config:
+                where: "crawl_date >= current_date - interval '7 days'"
       - name: crawl_date
+        description: Date of when the listing information was crawled
         data_tests:
-          - not_null
+          - not_null:
+              config:
+                where: "crawl_date >= current_date - interval '7 days'"
 
       - name: crawl_ts
+        description: Timestamp of when the listing information was crawled. 
         data_tests:
-          - not_null
-
-      - name: url
-        data_tests:
-          - not_null
-
-      - name: prefecture
-        data_tests:
-          - not_null
-
+          - not_null:
+              config:
+                where: "crawl_date >= current_date - interval '7 days'"
+      - name: location
+        description: Phyiscal address of the listing
       - name: city
+        description: City of the crawled listing
         data_tests:
-          - not_null
+          - not_null:
+              config:
+                where: "crawl_date >= current_date - interval '7 days'"
+      - name: prefecture
+        description: Prefecture of the crawled listing
+        data_tests:
+          - not_null:
+              config:
+                where: "crawl_date >= current_date - interval '7 days'"
+
+      - name: stations
+        description: An array containing all the nearby stations and how far they are from the listing. 
+      
+      - name: url
+        description: URL for the SUUMO property
+        data_tests:
+          - not_null:
+              config:
+                where: "crawl_date >= current_date - interval '7 days'"
+
+      - name: property_name
+        description: Property name of the crawled listing.
+
+      - name: rent_yen
+        description: Monthly rent of the listing
+
+      - name: deposit
+        description: The deposit required to rent the listing
+
+      - name: gratuity
+        description: Key money paid to the owner
+
+      - name: management_fee
+        description: Monthly fee paid to the management for the upkeep of the listing
+
+      - name: floor_plan
+        description: The floor plan of the listing i.e 1DK, 1LDK, 2DK etc 
+
+      - name: is_building_new
+        description: If the building is "新築" or newly built
+
+      - name: building_age
+        description: How old the building is. If the is_building_new is true then the building age is 0 (SUUMO only specifies if the age of the building or whether it's new)
+
+      - name: building_type
+        description: How many floors are there in the building
+
+      - name: url_key
+        description: A sha1 hash of the url
+
+      - name: source_file
+        description: The filename of where the data was loaded from

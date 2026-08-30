@@ -6,15 +6,18 @@ models:
 
     columns:
       - name: listing_id
+        description: Unique identifier for each listing. Generated from the url
         data_tests:
           - not_null:
               config:
                 where: "crawl_date >= current_date - interval '7 days'"
 
       - name: crawl_date
+        description: When the listing information was crawled
         data_tests:
           - not_null
 
       - name: url
+        description: Listing URL
         data_tests:
           - not_null
