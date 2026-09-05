@@ -52,12 +52,14 @@
 
         else
             try_cast(
+                try_cast(
                 regexp_extract(
                     {{ normalized }},
                     '([0-9]+(?:\.[0-9]+)?)万円',
                     1
                 ) as double
             ) * 10000
+            as int)
     end
 
 {% endmacro %}
